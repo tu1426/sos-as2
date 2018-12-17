@@ -1,0 +1,16 @@
+// setup
+- create directory "jade"
+- download jade.jar from "http://jade.tilab.com/download/jade/" and put it into newly created directory "jade"
+- create directory "classes"
+
+// start jade GUI (while being in the "jade" directory)
+java -cp jade.jar:classes jade.Boot -gui
+
+// compile java classes into "classes" directory
+- OUTPUT_DIR should be in the "classes" directory
+- CLASS(ES)_TO_COMPILE is a single java class or a wildcard expression like "/path/to/*.java"
+javac -cp jade.jar -d <OUTPUT_DIR> <CLASS(ES)_TO_COMPILE>
+
+
+// start MAS with agents and GUI from command line
+java -cp jade.jar:classes jade.Boot -gui -agents "<AGENT1_NAME>:<AGENT1_CLASS>(<ARG1>);<AGENT2_NAME>:<AGENT2_CLASS>(<ARG1>,<ARG2>)"
