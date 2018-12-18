@@ -7,8 +7,9 @@ playerAgentCount=5
 bankAgentRounds=10
 bankAgentMinAmount=100
 bankAgentMaxAmount=1000
-playerAgentStrategy="PROFIT"
+playerAgentStrategy="RANDOM"
 playerAgentWinThreshold=5000
+verbose="true"
 
 agentString=""
 
@@ -16,8 +17,8 @@ if [ "$1" = "help" ]
   then
     echo "example:"
     echo "./ultimatum.sh <jadeJarFile> <path/to/classes/folder> <msRoundInterval> <playerAgentCount> <bankAgentRounds> \
-<bankAgentMinAmount> <bankAgentMaxAmount> <playerAgentWinThreshold> <playerAgentStrategy>"
-    echo "./ultimatum.sh ./jade.jar ./classes 5000 5 10 100 1000 5000 <PROFIT || EQUALITY>"
+<bankAgentMinAmount> <bankAgentMaxAmount> <playerAgentWinThreshold> <verbose> <playerAgentStrategy>"
+    echo "./ultimatum.sh ./jade.jar ./classes 5000 5 10 100 1000 5000 true <PROFIT || EQUALITY>"
     exit 0
 fi
 
@@ -54,7 +55,17 @@ if [ "$8" != "" ]
 fi
 
 if [ "$9" != "" ]
-  then playerAgentStrategy=$9
+  then verbose=$9
+fi
+
+if [ "${10}" != "" ]
+  then playerAgentStrategy=${10}
+fi
+
+
+
+if [ "$verbose" != "true" ]
+  then verbose="false"
 fi
 
 echo "Selected values:"
@@ -66,16 +77,34 @@ echo "bankAgentRounds $bankAgentRounds"
 echo "bankAgentMinAmount $bankAgentMinAmount"
 echo "bankAgentMaxAmount $bankAgentMaxAmount"
 echo "playerAgentWinThreshold $playerAgentWinThreshold"
+echo "verbose $verbose"
 echo "playerAgentStrategy $playerAgentStrategy"
 
-for ((i=0;i<$playerAgentCount;i++))
-do
-  if [[ ${i} -eq 0 ]]
-      then agentString="player$i:ultimatumGame.PlayerAgent($playerAgentStrategy,$playerAgentWinThreshold)"
-    else agentString="$agentString;player$i:ultimatumGame.PlayerAgent($playerAgentStrategy,$playerAgentWinThreshold)"
-  fi
-done
+if [ "${10}" == "" ]
+    then
+      for ((i=0;i<$playerAgentCount;i++))
+      do
+        stg=$(( ( RANDOM % 10 )  + 1 ))
+        if [[ ${stg} -gt 5 ]]
+            then stg="PROFIT"
+          else stg="EQUALITY"
+        fi
 
-agentString="$agentString;bank:ultimatumGame.BankAgent($bankAgentRounds,$bankAgentMinAmount,$bankAgentMaxAmount,$msInterval)"
+        if [[ ${i} -eq 0 ]]
+            then agentString="player$i:ultimatumGame.PlayerAgent($stg,$playerAgentWinThreshold,$verbose)"
+          else agentString="$agentString;player$i:ultimatumGame.PlayerAgent($stg,$playerAgentWinThreshold,$verbose)"
+        fi
+      done
+  else
+    for ((i=0;i<$playerAgentCount;i++))
+    do
+      if [[ ${i} -eq 0 ]]
+          then agentString="player$i:ultimatumGame.PlayerAgent($playerAgentStrategy,$playerAgentWinThreshold,$verbose)"
+        else agentString="$agentString;player$i:ultimatumGame.PlayerAgent($playerAgentStrategy,$playerAgentWinThreshold,$verbose)"
+      fi
+    done
+fi
+
+agentString="$agentString;bank:ultimatumGame.BankAgent($bankAgentRounds,$bankAgentMinAmount,$bankAgentMaxAmount,$msInterval,$verbose)"
 
 java -cp ${jarPath}:${classesPath} jade.Boot -gui -agents ${agentString}

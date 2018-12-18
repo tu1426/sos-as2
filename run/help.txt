@@ -1,6 +1,6 @@
 Alex:
 javac -cp ~/Plugins/SOS/jade/jade.jar -d ~/Plugins/SOS/jade/classes/ ../src/ultimatumGame/*.java
-./ultimatum.sh ../../../../../../../../Plugins/SOS/jade/jade.jar ../../../../../../../../Plugins/SOS/jade/classes/ 1000 15 50 100 10000 75000 "PROFIT"
+./ultimatum.sh ../../../../../../../../Plugins/SOS/jade/jade.jar ../../../../../../../../Plugins/SOS/jade/classes/ 1000 15 50 100 10000 75000 true "PROFIT"
 
 
 

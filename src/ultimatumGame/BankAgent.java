@@ -27,12 +27,16 @@ public class BankAgent extends Agent {
     private int maxAmountToPlay = 1000;
 	// a list of known player agents
 	private AID[] playerAgents;
+	// flag for printing verbose log
+	private boolean verbose;
+	// flag for indicating termination
+	private boolean terminating = false;
 
 
 	// Put agent initializations here
 	protected void setup() {
 		// Printout a welcome message
-		System.out.println("Bank Agent " + getAID().getName() + " is ready.");
+		print("Bank Agent " + getAID().getName() + " is ready.", true);
 
 		// get strategy argument if specified, else use default strategy
 		Object[] args = getArguments();
@@ -50,62 +54,93 @@ public class BankAgent extends Agent {
             if (args.length > 3) {
                 msInterval = Integer.parseInt((String) args[3]);
             }
+
+			if (args.length > 4) {
+				verbose = Boolean.valueOf((String) args[4]);
+			}
 		}
-		System.out.println("Chosen parameters are " + rounds + " rounds, a minAmount of " + minAmountToPlay + " and a maxAmount of " + maxAmountToPlay + " per round.");
+		print("Chosen parameters are " + rounds + " rounds, a minAmount of " + minAmountToPlay + " and a maxAmount of " + maxAmountToPlay + " per round. Verbose is " + verbose, true);
 
 		addBehaviour(new TickerBehaviour(this, msInterval) {
 			protected void onTick() {
-				// find all player agents available and update list
-				DFAgentDescription template = new DFAgentDescription();
-				ServiceDescription sd = new ServiceDescription();
-				sd.setType("player-service");
-				template.addServices(sd);
-				try {
-					DFAgentDescription[] result = DFService.search(myAgent, template);
-					playerAgents = new AID[result.length];
-					for (int i = 0; i < result.length; ++i) {
-						playerAgents[i] = result[i].getName();
+				if(!terminating) {
+					// find all player agents available and update list
+					DFAgentDescription template = new DFAgentDescription();
+					ServiceDescription sd = new ServiceDescription();
+					sd.setType("player-service");
+					template.addServices(sd);
+					try {
+						DFAgentDescription[] result = DFService.search(myAgent, template);
+						playerAgents = new AID[result.length];
+						for (int i = 0; i < result.length; ++i) {
+							playerAgents[i] = result[i].getName();
+						}
+						print("Found " + playerAgents.length + " unique player agents.");
+					} catch (FIPAException fe) {
+						fe.printStackTrace();
 					}
-					System.out.println("Found " + playerAgents.length + " unique player agents.");
-				}
-				catch (FIPAException fe) {
-					fe.printStackTrace();
-				}
 
-				// Perform the request
-				myAgent.addBehaviour(new SpreadMoneyBehaviour());
+					// Perform the request
+					myAgent.addBehaviour(new SpreadMoneyBehaviour());
+				}
 			}
 		} );
 
 		// add bank request behaviour
 		addBehaviour(new SpreadResultServer());
-
 	}
 
 	// agent takedown operations here
 	protected void takeDown() {
-		// notify all player agents of bank agent shutdown
+		print("==============================================================================", true);
+		print(String.format("%-20s%-15s%-25s", "Bank Agent", "Rounds", "Spread"), true);
+		print("______________________________________________________________________________", true);
+		print(String.format("%-20s%-15d%-25s", getAID().getLocalName(), roundCount, actuallySpreadMoney + "/" + spreadMoney + "(" + String.format("%.2f", ((double) actuallySpreadMoney / (double) spreadMoney * 100)) + "%)"), true);
+		print("\n", true);
+		print("==============================================================================", true);
+		print(String.format("%-15s%-15s%-15s%-10s%-15s%-10s%-20s", "Player Agent", "Strategy", "Money",  "Spreads", "Spread Amount", "Shares", "Share Amount"), true);
+		print("______________________________________________________________________________", true);
+
 		ACLMessage cfp = new ACLMessage(ACLMessage.PROPAGATE);
 		for (int i = 0; i < playerAgents.length; i++) {
 			cfp.addReceiver(playerAgents[i]);
 		}
 		send(cfp);
-		System.out.println("Bank Agent " + getAID().getName() + " terminating now. He spread " + actuallySpreadMoney + " out of " + spreadMoney + " (" +  String.format("%.2f", ((double) actuallySpreadMoney / (double) spreadMoney * 100)) + "%) in " + roundCount + " rounds.");
+	}
+
+	// print info to command line
+	private void print(String toPrint, boolean always) {
+		if(verbose || always){
+			System.out.println(toPrint);
+		}
+	}
+
+	// print info to command line
+	private void print(String toPrint) {
+		print(toPrint, false);
 	}
 
 	private class SpreadMoneyBehaviour extends OneShotBehaviour {
 		public void action() {
-			ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
-			int randomReceiver = (int) (Math.random() * playerAgents.length); // random int between 0 and size of playerAgents - 1
-			cfp.addReceiver(playerAgents[randomReceiver]); // TODO: maybe some rules for selecting receiver?
-            int randomAmount = (int) (Math.random() * (maxAmountToPlay - minAmountToPlay + 1)) + minAmountToPlay;
-			cfp.setContent(String.valueOf(randomAmount));
-			myAgent.send(cfp);
-			System.out.println("Tried to spread " + randomAmount + " in round " + roundCount);
-			roundCount ++;
-			spreadMoney += randomAmount;
-			if(roundCount == rounds){
-				doDelete();
+			if(!terminating) {
+				ACLMessage cfp = new ACLMessage(ACLMessage.CFP);
+				int randomReceiver = (int) (Math.random() * playerAgents.length); // random int between 0 and size of playerAgents - 1
+				cfp.addReceiver(playerAgents[randomReceiver]); // TODO: maybe some rules for selecting receiver?
+				int randomAmount = (int) (Math.random() * (maxAmountToPlay - minAmountToPlay + 1)) + minAmountToPlay;
+				cfp.setContent(String.valueOf(randomAmount));
+				myAgent.send(cfp);
+				print("Tried to spread " + randomAmount + " in round " + roundCount, true);
+				roundCount++;
+				spreadMoney += randomAmount;
+				if (roundCount == rounds) {
+					terminating = true;
+					addBehaviour(new WakerBehaviour(myAgent, Math.min(msInterval * 5, 5000)) {
+						@Override
+						protected void onWake() {
+							doDelete();
+						}
+					});
+				}
 			}
 		}
 	}
@@ -120,7 +155,7 @@ public class BankAgent extends Agent {
 				String result = msg.getContent();
 				if(!result.equals("N")) {
 					amountActuallySpread = Integer.parseInt(result);
-					System.out.println("A deal worth of " + amountActuallySpread + " was completed.");
+					//print("A deal worth of " + amountActuallySpread + " was completed.");
 					actuallySpreadMoney += amountActuallySpread;
 				}
 			} else {

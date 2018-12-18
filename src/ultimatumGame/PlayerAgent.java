@@ -21,8 +21,20 @@ public class PlayerAgent extends Agent {
 	private int money = 0;
 	// count of received spread requests
 	private int spreadRequestCount = 0;
+	// amount offered with spreads
+	private int spreadRequestAmount = 0;
 	// count of received share requests
 	private int shareRequestCount = 0;
+	// amount offered with shares
+	private int shareRequestAmount = 0;
+	// the lowest percentage of a share that was accepted
+	private double lowestShareAccepted = 100.0;
+	// the highest percentage of a share that was rejected
+	private double highestShareRejected = 0.0;
+	// the minimum percentage of a share that received
+	private double minShareReceived = 100.0;
+	// the maximum percentage of a share that was received
+	private double maxShareReceived = 0.0;
 	// the amount to negotiate with this round
 	private int amountToPlay = 0;
 	// the amount to negotiate with this round
@@ -31,12 +43,14 @@ public class PlayerAgent extends Agent {
 	private AID[] playerAgents;
 	// the bank agent that submitted the spread request
 	private AID bankAgent;
+	// flag for printing verbose log
+	private boolean verbose;
 
 
 	// Put agent initializations here
 	protected void setup() {
 		// Printout a welcome message
-		System.out.println("Player Agent " + getAID().getName() + " is ready.");
+		print("Player Agent " + getAID().getName() + " is ready.", true);
 
 		// get strategy argument if specified, else use default strategy
 		Object[] args = getArguments();
@@ -49,8 +63,12 @@ public class PlayerAgent extends Agent {
 			if (args.length > 1) {
 				winningThreshold = Integer.parseInt((String) args[1]);
 			}
+
+			if (args.length > 2) {
+				verbose = Boolean.valueOf((String) args[2]);
+			}
 		}
-		System.out.println("Chosen strategy is " + strategy + ".");
+		print("Chosen strategy is " + strategy + ", winningThreshold is " + winningThreshold + ", verbose is " + verbose + ".", true);
 
 
 		// Register the player agent service in the yellow pages
@@ -62,7 +80,7 @@ public class PlayerAgent extends Agent {
 		dfd.addServices(sd);
 		try {
 			DFService.register(this, dfd);
-			System.out.println("Registered " + getAID().getName() + "  as player agent.");
+			print("Registered " + getAID().getName() + "  as player agent.");
 		}
 		catch (FIPAException fe) {
 			fe.printStackTrace();
@@ -87,7 +105,20 @@ public class PlayerAgent extends Agent {
 		catch (FIPAException fe) {
 			fe.printStackTrace();
 		}
-		System.out.println("Player Agent " + getAID().getName() + " terminating now. His stash was " + money + ", he received " + spreadRequestCount + " spread requests and " + shareRequestCount + " share requests");
+
+		print(String.format("%-15s%-15s%-15d%-10d%-15d%-10d%-20d", getAID().getLocalName(), strategy, money, spreadRequestCount, spreadRequestAmount, shareRequestCount, shareRequestAmount), true);
+	}
+
+	// print info to command line
+	private void print(String toPrint, boolean always) {
+		if(verbose || always){
+			System.out.println(toPrint);
+		}
+	}
+
+	// print info to command line
+	private void print(String toPrint) {
+		print(toPrint, false);
 	}
 
 	private class BankRequestServer extends CyclicBehaviour {
@@ -100,7 +131,8 @@ public class PlayerAgent extends Agent {
 				bankAgent = msg.getSender();
 				amountToPlay = Integer.parseInt(amount);
 				spreadRequestCount ++;
-				System.out.println("Received money spread request #" + spreadRequestCount +" for " + amountToPlay);
+				spreadRequestAmount += amountToPlay;
+				print("Received money spread request #" + spreadRequestCount +" for " + amountToPlay);
 
 				// find all player agents available and update list
 				DFAgentDescription template = new DFAgentDescription();
@@ -139,19 +171,27 @@ public class PlayerAgent extends Agent {
 				int wholeAmount = content.get(0);
 				int share = content.get(1);
 				shareRequestCount ++;
-				System.out.println("Received share offer #" + shareRequestCount + " of " + share + " out of " + wholeAmount + " (" + String.format("%.2f", ((double) share / (double) wholeAmount * 100)) + "%).");
+				shareRequestAmount += share;
+				double sharePercentage = ((double) share / (double) wholeAmount * 100);
+				if(sharePercentage > maxShareReceived){
+					maxShareReceived = sharePercentage;
+				}
+				if(sharePercentage < minShareReceived){
+					minShareReceived = sharePercentage;
+				}
+				print("Received share offer #" + shareRequestCount + " of " + share + " out of " + wholeAmount + " (" + String.format("%.2f", sharePercentage) + "%).");
 				ACLMessage reply = msg.createReply();
 
 				if(isShareOkay(share, wholeAmount)){
 					money += share;
 					reply.setPerformative(ACLMessage.ACCEPT_PROPOSAL);
-					System.out.println("Y - Accepted share of " + String.format("%.2f", ((double) share / (double) wholeAmount * 100)) + "%.");
+					print("Y - Accepted share of " + String.format("%.2f", sharePercentage) + "%.");
 					if(money > winningThreshold){
 						doDelete();
 					}
 				} else{
 					reply.setPerformative(ACLMessage.REJECT_PROPOSAL);
-					System.out.println("N - Rejected share of " + String.format("%.2f", ((double) share / (double) wholeAmount * 100)) + "%.");
+					print("N - Rejected share of " + String.format("%.2f", sharePercentage) + "%.");
 				}
 				myAgent.send(reply);
 			} else {
@@ -160,8 +200,29 @@ public class PlayerAgent extends Agent {
 		}
 
 		private boolean isShareOkay(int share, int wholeAmount){
-			// TODO: implement some rules
-			return (int) Math.round(Math.random()) != 0;
+			if(money + share > winningThreshold){
+				return true;
+			}
+			if(strategy.equals("EQUALITY")){
+				if((double) share / (double) wholeAmount >= 0.4){
+					return true;
+				} else{
+					print(String.format("strategy %s\nmoney %d\nshare %d\nwholeAmount %d\nsharePercentage %f\nminShareReceived %f\nmaxShareReceived %f\nspreadRequestAmount %d\nshareRequestAmount %d", strategy, money, share, wholeAmount, ((double) share / (double) wholeAmount), minShareReceived, maxShareReceived, spreadRequestAmount, shareRequestAmount), true);
+					return false;
+				}
+			}
+			if((double) money / (double) winningThreshold < 0.1 && (double) share / (double) wholeAmount * 100 >= Math.min(minShareReceived, 20)){
+				return true;
+			}
+			if((double) money / (double) (spreadRequestAmount + shareRequestAmount) < 0.1 && (double) share / (double) wholeAmount >= 0.15){
+				return true;
+			}
+			if((double) share / (double) wholeAmount * 100 >= Math.max(maxShareReceived - 1, 35)){
+				return true;
+			} else {
+				print(String.format("strategy %s\nmoney %d\nshare %d\nwholeAmount %d\nsharePercentage %f\nminShareReceived %f\nmaxShareReceived %f\nspreadRequestAmount %d\nshareRequestAmount %d", strategy, money, share, wholeAmount, ((double) share / (double) wholeAmount), minShareReceived, maxShareReceived, spreadRequestAmount, shareRequestAmount), true);
+				return false;
+			}
 		}
 	}
 
@@ -185,6 +246,7 @@ public class PlayerAgent extends Agent {
 		private AID localBank = bankAgent;
 
 		public void action() {
+			double sharePercentage = 0;
 			switch (step) {
 			case 0:
 				// send the proposal with the share amount to one agent
@@ -203,7 +265,8 @@ public class PlayerAgent extends Agent {
 				cfp.setReplyWith(getAID().getName() + System.currentTimeMillis());
 				myAgent.send(cfp); // send share offer
 
-				System.out.println("Offered a share of " + shareToOffer + " out of " + wholeAmount + " (" + String.format("%.2f", ((double) shareToOffer / (double) wholeAmount * 100)) + "%).");
+				sharePercentage = ((double) shareToOffer / (double) wholeAmount * 100);
+				print("Offered a share of " + shareToOffer + " out of " + wholeAmount + " (" + String.format("%.2f", sharePercentage) + "%).");
 
 				// prepare message template for receiving a response
 				mt = MessageTemplate.and(MessageTemplate.MatchConversationId("process-round"),
@@ -212,20 +275,26 @@ public class PlayerAgent extends Agent {
 				break;
 			case 1:
 				// Receive response for proposed share
+				sharePercentage = ((double) shareToOffer / (double) wholeAmount * 100);
 				ACLMessage reply = myAgent.receive(mt);
 				if (reply != null) {
 					// reply received
 					if (reply.getPerformative() == ACLMessage.ACCEPT_PROPOSAL) {
-						// peer has accepted the share, add our share to the money stack
+						if(lowestShareAccepted > sharePercentage){
+							lowestShareAccepted = sharePercentage;
+						}
 						money += (wholeAmount - shareToOffer);
-						System.out.println("Y - Player accepted the share of " + String.format("%.2f", ((double) shareToOffer / (double) amountToPlay * 100)) + "%.");
+						print("Y - Player accepted the share of " + String.format("%.2f", sharePercentage) + "%.");
 						sendReply(String.valueOf(wholeAmount));
 						if(money > winningThreshold){
 							doDelete();
 						}
 					} else{
+						if(highestShareRejected < sharePercentage){
+							highestShareRejected = sharePercentage;
+						}
 						sendReply("N");
-						System.out.println("N - Player did not accept a share of " + String.format("%.2f", ((double) shareToOffer / (double) amountToPlay * 100)) + "%.");
+						print("N - Player did not accept a share of " + String.format("%.2f", sharePercentage) + "%.", true);
 					}
 					step = 2;
 				} else {
@@ -236,8 +305,27 @@ public class PlayerAgent extends Agent {
 		}
 
 		private int computeShareToOffer(int wholeAmount){
-			// TODO: implement some rules
-			return (int) ((Math.random() / 2) * wholeAmount);
+			if(strategy.equals("EQUALITY")){
+				return wholeAmount / 2;
+			}
+			if(money + (wholeAmount / 2) > winningThreshold){
+				return wholeAmount - (winningThreshold - money);
+			}
+			if((double) money / (double) winningThreshold > 0.5){
+				int shareMin = (int) Math.min(lowestShareAccepted, 20);
+				int sharePercentage = (int) (Math.random() * (34 - shareMin)) + shareMin;
+				return wholeAmount * sharePercentage / 100;
+			}
+			if(spreadRequestCount + shareRequestCount > 5 && money / (spreadRequestAmount + shareRequestAmount) < 0.15){
+				int shareMax = (int) Math.max(highestShareRejected, 40);
+				int sharePercentage = (int) (Math.random() * (shareMax - 33)) + 33;
+				return wholeAmount * sharePercentage / 100;
+			} else{
+				int shareMin = (int) Math.min(lowestShareAccepted, 20);
+				int shareMax = (int) Math.max(highestShareRejected, 40);
+				int sharePercentage = (int) (Math.random() * (shareMax - shareMin)) + shareMin;
+				return wholeAmount * sharePercentage / 100;
+			}
 		}
 
 		private void sendReply(String result){
@@ -245,7 +333,7 @@ public class PlayerAgent extends Agent {
 			cfp.addReceiver(localBank);
 			cfp.setContent(result);
 			myAgent.send(cfp);
-			System.out.println("Negotiation response to bank agent sent.");
+			print("Negotiation response to bank agent sent.");
 		}
 
 		private AID selectReceiver(){
