@@ -207,7 +207,7 @@ public class PlayerAgent extends Agent {
 				if((double) share / (double) wholeAmount >= 0.4){
 					return true;
 				} else{
-					print(String.format("strategy %s\nmoney %d\nshare %d\nwholeAmount %d\nsharePercentage %f\nminShareReceived %f\nmaxShareReceived %f\nspreadRequestAmount %d\nshareRequestAmount %d", strategy, money, share, wholeAmount, ((double) share / (double) wholeAmount), minShareReceived, maxShareReceived, spreadRequestAmount, shareRequestAmount), true);
+					//print(String.format("strategy %s\nmoney %d\nshare %d\nwholeAmount %d\nsharePercentage %f\nminShareReceived %f\nmaxShareReceived %f\nspreadRequestAmount %d\nshareRequestAmount %d", strategy, money, share, wholeAmount, ((double) share / (double) wholeAmount), minShareReceived, maxShareReceived, spreadRequestAmount, shareRequestAmount), true);
 					return false;
 				}
 			}
@@ -220,7 +220,7 @@ public class PlayerAgent extends Agent {
 			if((double) share / (double) wholeAmount * 100 >= Math.max(maxShareReceived - 1, 35)){
 				return true;
 			} else {
-				print(String.format("strategy %s\nmoney %d\nshare %d\nwholeAmount %d\nsharePercentage %f\nminShareReceived %f\nmaxShareReceived %f\nspreadRequestAmount %d\nshareRequestAmount %d", strategy, money, share, wholeAmount, ((double) share / (double) wholeAmount), minShareReceived, maxShareReceived, spreadRequestAmount, shareRequestAmount), true);
+				//print(String.format("strategy %s\nmoney %d\nshare %d\nwholeAmount %d\nsharePercentage %f\nminShareReceived %f\nmaxShareReceived %f\nspreadRequestAmount %d\nshareRequestAmount %d", strategy, money, share, wholeAmount, ((double) share / (double) wholeAmount), minShareReceived, maxShareReceived, spreadRequestAmount, shareRequestAmount), true);
 				return false;
 			}
 		}
@@ -284,7 +284,7 @@ public class PlayerAgent extends Agent {
 							lowestShareAccepted = sharePercentage;
 						}
 						money += (wholeAmount - shareToOffer);
-						print("Y - Player accepted the share of " + String.format("%.2f", sharePercentage) + "%.");
+						print("Y - Player accepted the share of " + String.format("%.2f", sharePercentage) + "%.", true);
 						sendReply(String.valueOf(wholeAmount));
 						if(money > winningThreshold){
 							doDelete();
