@@ -14,3 +14,4 @@ javac -cp jade.jar -d <OUTPUT_DIR> <CLASS(ES)_TO_COMPILE>
 
 // start MAS with agents and GUI from command line
 java -cp jade.jar:classes jade.Boot -gui -agents "<AGENT1_NAME>:<AGENT1_CLASS>(<ARG1>);<AGENT2_NAME>:<AGENT2_CLASS>(<ARG1>,<ARG2>)"
+
