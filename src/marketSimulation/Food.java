@@ -1,14 +1,16 @@
 package marketSimulation;
 
-public class Food {
+import java.io.Serializable;
+
+public class Food implements Serializable {
 
     private Constants.FoodType foodType;
-    private int price;		// 1-10
-    private int quality;	// 1-5
+    private int price;		                // 1-10 (1=low, 10=high)
+    private int quality;	                // 1-5 (1=low, 5=high)
 
     public Food() {
-        this.foodType = Constants.FoodType.values()[(int) (Math.random() * 10) % 4];
-        this.price = ((int) (Math.random() * 10)) % 10 + 1;
+        this.foodType = Helpers.getRandomFoodType();
+        this.price = Helpers.getRandomNumberBetweenOneAndTen();
 
         if(this.price == 1 || this.price == 2) {
             this.quality = 5;
@@ -51,5 +53,14 @@ public class Food {
 
     public void setQuality(int quality) {
         this.quality = quality;
+    }
+
+    @Override
+    public String toString() {
+        return "Food{" +
+                "foodType=" + foodType +
+                ", price=" + price +
+                ", quality=" + quality +
+                '}';
     }
 }

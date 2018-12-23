@@ -9,8 +9,6 @@ public class FoodRequest implements Serializable {
     private int minQuality;
     private Constants.BuyingStrategy buyingStrategy;
 
-    private FoodRequest() {}
-
     public FoodRequest(Constants.FoodType foodType, int maxPrice, int minQuality, Constants.BuyingStrategy buyingStrategy) {
         this.foodType = foodType;
         this.maxPrice = maxPrice;
@@ -48,5 +46,15 @@ public class FoodRequest implements Serializable {
 
     public void setBuyingStrategy(Constants.BuyingStrategy buyingStrategy) {
         this.buyingStrategy = buyingStrategy;
+    }
+
+    @Override
+    public String toString() {
+        return "FoodRequest{" +
+                "foodType=" + foodType +
+                ", maxPrice=" + maxPrice +
+                ", minQuality=" + minQuality +
+                ", buyingStrategy=" + buyingStrategy +
+                '}';
     }
 }

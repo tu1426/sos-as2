@@ -3,7 +3,6 @@ package marketSimulation;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.Behaviour;
-import jade.core.behaviours.CyclicBehaviour;
 import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
@@ -18,8 +17,7 @@ import java.util.ArrayList;
 
 public class ConsumerAgent extends Agent {
 
-	// the amount of rounds that will be played by this bank agent
-	private int msInterval = 5000;
+	private int msInterval = 500;
 	// the strategy the agent will follow
 	private Constants.BuyingStrategy buyingStrategy;
 	// actual amount of money
@@ -34,8 +32,6 @@ public class ConsumerAgent extends Agent {
 	private AID[] producerAgents;
 	// flag for printing verbose log
 	private boolean verbose;
-	// flag for indicating termination
-	private boolean terminating = false;
 
 
 	// Put agent initializations here
@@ -43,12 +39,14 @@ public class ConsumerAgent extends Agent {
 		// Printout a welcome message
 		print("Consumer Agent " + getAID().getName() + " is ready.", true);
 
-		buyingStrategy = Constants.BuyingStrategy.values()[(int) (Math.random() * 10) % 2];
+		buyingStrategy = Helpers.getRandomBuyingStrategy();
 
-		buyingTarget = ((int) (Math.random() * 10)) + 1;
+		buyingTarget = Helpers.getRandomNumberBetweenOneAndTen();
 
-		moneyBalance = ((int) (Math.random() * 100)) + 1;
+		moneyBalance = Helpers.getRandomNumberBetweenOneAndOneHundred();
 		moneyAtStart = moneyBalance;
+
+		boughtFood = new ArrayList<>();
 
 		// get strategy argument if specified, else use default strategy
 		Object[] args = getArguments();
@@ -57,9 +55,25 @@ public class ConsumerAgent extends Agent {
 		}
 		print("Chosen strategy is " + buyingStrategy + ", buying target is " + buyingTarget + ", money balance is " + moneyBalance + ", verbose is " + verbose + ".", true);
 
+		// Register the player agent service in the yellow pages
+		DFAgentDescription dfd = new DFAgentDescription();
+		dfd.setName(getAID());
+		ServiceDescription sd = new ServiceDescription();
+		sd.setType("consumer-service");
+		sd.setName("JADE-market-simulation");
+		dfd.addServices(sd);
+		try {
+			DFService.register(this, dfd);
+			print("Registered " + getAID().getName() + "  as consumer agent.");
+		}
+		catch (FIPAException fe) {
+			fe.printStackTrace();
+		}
+
 		addBehaviour(new TickerBehaviour(this, msInterval) {
 			protected void onTick() {
-				if(!terminating) {
+				// if money is less than 10 it is not guaranteed that consumer can pay for food (there is actually no acknowledgement back to producer)
+				if(boughtFood.size() < buyingTarget && moneyBalance >= 10) {
 					// find all producer agents available and update list
 					DFAgentDescription template = new DFAgentDescription();
 					ServiceDescription sd = new ServiceDescription();
@@ -76,19 +90,31 @@ public class ConsumerAgent extends Agent {
 						fe.printStackTrace();
 					}
 
-					myAgent.addBehaviour(new BuyRequestClient());
-					myAgent.addBehaviour(new BuyResponseClient());
+					if(producerAgents.length == 0) {
+						doDelete();
+					}
+
+					myAgent.addBehaviour(new RequestResponseClient());
+				} else {
+					doDelete();
 				}
 			}
-		} );
+		});
 	}
 
 	// agent takedown operations here
 	protected void takeDown() {
-		print("==============================================================================", true);
-		print(String.format("%-15s%-15s%-15s%-15s%-15s%-15s", "Consumer Agent", "Strategy", "Buying Target",  "Money at Beginning", "Actual Money Balance", "Bought Food"), true);
-		print(String.format("%-15s%-15s%-15d%-15d%-15d%-15d", getAID().getLocalName(), buyingStrategy, buyingTarget, moneyAtStart, moneyBalance, boughtFood.size()), true);
-		print("______________________________________________________________________________", true);
+		try {
+			DFService.deregister(this);
+		}
+		catch (FIPAException fe) {
+			fe.printStackTrace();
+		}
+
+		print("=======================================================================================================================", true);
+		print(String.format("%-20s%-20s%-20s%-20s%-20s%-20s", "Consumer Agent", "Strategy", "Buying Target",  "Money Balance @ T0", "Money Balance", "Bought Food"), true);
+		print("_______________________________________________________________________________________________________________________", true);
+		print(String.format("%-20s%-20s%-20d%-20d%-20d%-20d", getAID().getLocalName(), buyingStrategy, buyingTarget, moneyAtStart, moneyBalance, boughtFood.size()), true);
 	}
 
 	// print info to command line
@@ -103,35 +129,83 @@ public class ConsumerAgent extends Agent {
 		print(toPrint, false);
 	}
 
-	private class BuyRequestClient extends CyclicBehaviour {
+	private class RequestResponseClient extends Behaviour {
+		private int step = 0;
+
 		public void action() {
-			ACLMessage message = new ACLMessage(ACLMessage.REQUEST);
-			int randomReceiver = (int) (Math.random() * producerAgents.length); // random int between 0 and size of producerAgents - 1
-			message.addReceiver(producerAgents[randomReceiver]);
+			switch (step) {
+				case 0:
+					// if money is less than 10 it is not guaranteed that consumer can pay for food (there is actually no acknowledgement back to producer)
+					if (boughtFood.size() < buyingTarget && moneyBalance >= 10) {
+						// send the food request to producer
+						ACLMessage message = new ACLMessage(ACLMessage.REQUEST);
+						int randomReceiver = (int) (Math.random() * producerAgents.length); // random int between 0 and size of producerAgents - 1
+						message.addReceiver(producerAgents[randomReceiver]);
 
-			FoodRequest foodRequest = createFoodRequest();
+						FoodRequest foodRequest = createFoodRequest();
 
-			try {
-				message.setContentObject(foodRequest);
-				myAgent.send(message);
-				print("Food request sent: type - " + foodRequest.getFoodType() + ", minimum quality - " +foodRequest.getMinQuality() + ", maximum price - " + foodRequest.getMaxPrice() +";", true);
-			} catch (IOException e) {
-				e.printStackTrace();
+						try {
+							message.setContentObject(foodRequest);
+							myAgent.send(message);
+							print("Food request sent to " + producerAgents[randomReceiver].getName() + " => " + foodRequest.toString(), true);
+						} catch (IOException e) {
+							e.printStackTrace();
+						}
+						step = 1;
+					} else {
+						doDelete();
+					}
+					break;
+				case 1:
+					// if money is less than 10 it is not guaranteed that consumer can pay for food (there is actually no acknowledgement back to producer)
+					if (boughtFood.size() < buyingTarget && moneyBalance >= 10) {
+						// Receive response for proposed share
+						MessageTemplate mtConfirm = MessageTemplate.MatchPerformative(ACLMessage.CONFIRM);
+						MessageTemplate mtDisconfirm = MessageTemplate.MatchPerformative(ACLMessage.DISCONFIRM);
+						ACLMessage msgConfirm = myAgent.receive(mtConfirm);
+						ACLMessage msgDisonfirm = myAgent.receive(mtDisconfirm);
+
+						if (msgConfirm != null) {
+							AID sender = msgConfirm.getSender();
+							// result message received. Process it
+							try {
+								Food foodResponse = (Food) msgConfirm.getContentObject();
+								boughtFood.add(foodResponse);
+								moneyBalance -= foodResponse.getPrice();
+
+								print("Food bought from " + sender.getName() + " => " + foodResponse.toString(), true);
+							} catch (UnreadableException e) {
+								e.printStackTrace();
+							}
+						}
+
+						if (msgConfirm == null && msgDisonfirm == null) {
+							block();
+						}
+						step = 2;
+					} else {
+						doDelete();
+					}
+					break;
 			}
 		}
 
 		private FoodRequest createFoodRequest() {
-			FoodRequest foodRequest = null;
+			Constants.FoodType foodType = Helpers.getRandomFoodType();
 
-			// TODO implement method
+			int minQuality = 0;
+			int maxPrice = 0;
 
-			return foodRequest;
+			if(buyingStrategy == Constants.BuyingStrategy.price) {
+				maxPrice = Helpers.getRandomNumberBetweenOneAndFive();
+			} else if(buyingStrategy == Constants.BuyingStrategy.quality) {
+				minQuality = Helpers.getRandomNumberBetweenThreeAndFive();
+			}
+			return new FoodRequest(foodType, maxPrice, minQuality, buyingStrategy);
 		}
-	}
 
-	private class BuyResponseClient extends CyclicBehaviour {
-		public void action() {
-
+		public boolean done() {
+			return step == 2;
 		}
 	}
 }

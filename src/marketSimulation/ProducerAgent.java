@@ -3,6 +3,7 @@ package marketSimulation;
 import jade.core.AID;
 import jade.core.Agent;
 import jade.core.behaviours.CyclicBehaviour;
+import jade.core.behaviours.TickerBehaviour;
 import jade.domain.DFService;
 import jade.domain.FIPAAgentManagement.DFAgentDescription;
 import jade.domain.FIPAAgentManagement.ServiceDescription;
@@ -16,12 +17,15 @@ import java.util.ArrayList;
 
 public class ProducerAgent extends Agent {
 
+	private int msInterval = 500;
 	// target of food to produce (amount of food)
 	private int producingTarget = 0;
 	// balance of money of producer
 	private int moneyBalance = 0;
 	// produced food by producer
     private ArrayList<Food> producedFood;
+    // a list of known consumer agents
+	private AID[] consumerAgents;
 	// flag for printing verbose log
 	private boolean verbose;
 
@@ -31,7 +35,7 @@ public class ProducerAgent extends Agent {
 		// Printout a welcome message
 		print("Producer Agent " + getAID().getName() + " is ready.", true);
 
-		producingTarget = ((int) (Math.random() * 100)) + 1;
+		producingTarget = Helpers.getRandomNumberBetweenOneAndOneHundred();
 
 		// get strategy argument if specified, else use default strategy
 		Object[] args = getArguments();
@@ -61,8 +65,31 @@ public class ProducerAgent extends Agent {
 			fe.printStackTrace();
 		}
 
-		// add bank request behaviour
-		addBehaviour(new BuyRequestResponseServer());
+		addBehaviour(new TickerBehaviour(this, msInterval) {
+			protected void onTick() {
+				// find all producer agents available and update list
+				DFAgentDescription template = new DFAgentDescription();
+				ServiceDescription sd = new ServiceDescription();
+				sd.setType("consumer-service");
+				template.addServices(sd);
+				try {
+					DFAgentDescription[] result = DFService.search(myAgent, template);
+					consumerAgents = new AID[result.length];
+					for (int i = 0; i < result.length; ++i) {
+						consumerAgents[i] = result[i].getName();
+					}
+					print("Found " + consumerAgents.length + " unique consumer agents.");
+				} catch (FIPAException fe) {
+					fe.printStackTrace();
+				}
+
+				if(consumerAgents.length == 0) {
+					doDelete();
+				}
+			}
+		});
+
+		addBehaviour(new FoodRequestResponseServer());
 	}
 
 	// agent takedown operations here
@@ -75,9 +102,9 @@ public class ProducerAgent extends Agent {
 		}
 
 		print("==============================================================================", true);
-		print(String.format("%20s%-20s%-20s%-25s", "Producer Agent", "Money Balance", "Total Food", "Sold / Unsold Food"), true);
+		print(String.format("%-20s%-20s%-35s", "Producer Agent", "Money Balance", "Sold / Unsold / Total Food"), true);
 		print("______________________________________________________________________________", true);
-		print(String.format("%-20s%-20d%-20d%-25s", getAID().getLocalName(), moneyBalance, producingTarget, (producingTarget-producedFood.size())+" / "+producedFood.size()), true);
+		print(String.format("%-20s%-20d%-35s", getAID().getLocalName(), moneyBalance, (producingTarget-producedFood.size())+" / "+producedFood.size()+" / "+producingTarget), true);
 		print("\n", true);
 		print("==============================================================================", true);
 	}
@@ -94,19 +121,20 @@ public class ProducerAgent extends Agent {
 		print(toPrint, false);
 	}
 
-
-	private class BuyRequestResponseServer extends CyclicBehaviour {
+	private class FoodRequestResponseServer extends CyclicBehaviour {
 		public void action() {
 			MessageTemplate mt = MessageTemplate.MatchPerformative(ACLMessage.REQUEST);
 			ACLMessage msg = myAgent.receive(mt);
-			AID sender = msg.getSender();
 
 			if (msg != null) {
+				AID sender = msg.getSender();
 				// result message received. Process it
 				try {
 					FoodRequest foodRequest = (FoodRequest) msg.getContentObject();
 
-					FoodResponse foodResponse = sellMatchingFood(foodRequest);
+					print("Food request received from " + sender.getName() + " => " + foodRequest.toString(), true);
+
+					Food foodResponse = sellMatchingFood(foodRequest);
 
 					ACLMessage message;
 
@@ -115,10 +143,15 @@ public class ProducerAgent extends Agent {
 					} else {
 						message = new ACLMessage(ACLMessage.CONFIRM);
 						message.setContentObject(foodResponse);
+						print("Food sold to " + sender.getName() + " => " + foodResponse.toString(), true);
 					}
 
 					message.addReceiver(sender);
 					send(message);
+
+					if(producedFood.isEmpty()) {
+						doDelete();
+					}
 
 				} catch (UnreadableException | IOException e) {
 					e.printStackTrace();
@@ -128,21 +161,21 @@ public class ProducerAgent extends Agent {
 			}
 		}
 
-		private FoodResponse sellMatchingFood(FoodRequest foodRequest) {
-			FoodResponse foodResponse = null;
+		private Food sellMatchingFood(FoodRequest foodRequest) {
+			Food foodResponse = null;
 
 			for (Food food : producedFood) {
 				if (food.getFoodType() == foodRequest.getFoodType()) {
 					if(foodRequest.getBuyingStrategy() == Constants.BuyingStrategy.price) {
 						if(food.getPrice() <= foodRequest.getMaxPrice()) {
-							foodResponse = new FoodResponse(food.getFoodType(), food.getPrice(), food.getQuality());
+							foodResponse = food;
 							moneyBalance += food.getPrice();
 							producedFood.remove(food);
 							break;
 						}
 					} else if(foodRequest.getBuyingStrategy() == Constants.BuyingStrategy.quality) {
 						if (food.getQuality() >= foodRequest.getMinQuality()) {
-							foodResponse = new FoodResponse(food.getFoodType(), food.getPrice(), food.getQuality());
+							foodResponse = food;
 							moneyBalance += food.getPrice();
 							producedFood.remove(food);
 							break;
