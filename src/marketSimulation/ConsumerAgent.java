@@ -48,9 +48,13 @@ public class ConsumerAgent extends Agent {
 		// get strategy argument if specified, else use default strategy
 		Object[] args = getArguments();
 		if (args != null && args.length > 0) {
-			verbose = Boolean.parseBoolean((String) args[0]);
+			msInterval = Integer.parseInt((String) args[0]);
+
+			if(args.length > 1) {
+				verbose = Boolean.valueOf((String) args[1]);
+			}
 		}
-		print("Consumer Agent '" + getAID().getLocalName() + "' is ready. Chosen strategy is " + buyingStrategy + ", buying target is " + buyingTarget + ", money balance is " + moneyBalance + ", verbose is " + verbose + ".", true);
+		print("Consumer Agent '" + getAID().getLocalName() + "' is ready. Chosen parameters are '" + buyingStrategy + "' buying strategy, " + msInterval + " interval, "+  buyingTarget + " buying target, " + moneyBalance + " money balance, verbose is '" + verbose + "'.", true);
 
 		// Register the player agent service in the yellow pages
 		DFAgentDescription dfd = new DFAgentDescription();

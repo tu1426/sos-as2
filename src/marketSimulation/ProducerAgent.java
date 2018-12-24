@@ -37,9 +37,13 @@ public class ProducerAgent extends Agent {
 		// get strategy argument if specified, else use default strategy
 		Object[] args = getArguments();
 		if (args != null && args.length > 0) {
-			verbose = Boolean.valueOf((String) args[0]);
+			msInterval = Integer.parseInt((String) args[0]);
+
+			if(args.length > 1) {
+				verbose = Boolean.valueOf((String) args[1]);
+			}
 		}
-		print("Producer Agent " + getAID().getLocalName() + " is ready. Chosen parameters are " + producingTarget + " producing target, Verbose is " + verbose, true);
+		print("Producer Agent '" + getAID().getLocalName() + "' is ready. Chosen parameters are " + msInterval + " interval, " + producingTarget + " producing target, verbose is '" + verbose + "'.", true);
 
 		producedFood = new ArrayList<>();
 
@@ -102,7 +106,6 @@ public class ProducerAgent extends Agent {
 		print(String.format("%-20s%-20s%-35s", "Producer Agent", "Money Balance", "Sold / Unsold / Total Food"), true);
 		print("__________________________________________________________________", true);
 		print(String.format("%-20s%-20d%-35s", getAID().getLocalName(), moneyBalance, (producingTarget-producedFood.size())+" / "+producedFood.size()+" / "+producingTarget), true);
-		print("\n", true);
 		print("==================================================================", true);
 	}
 

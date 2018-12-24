@@ -2,9 +2,10 @@ Alex:
 javac -cp ~/Plugins/SOS/jade/jade.jar -d ~/Plugins/SOS/jade/classes/ ../src/ultimatumGame/*.java
 ./ultimatum.sh ../../../../../../../../Plugins/SOS/jade/jade.jar ../../../../../../../../Plugins/SOS/jade/classes/ 1000 15 50 100 10000 75000 true "PROFIT"
 
-Peter:
+Peter (from run directory):
 compile:	javac -cp ../jade/jade.jar -d ../classes ../src/marketSimulation/*.java
 run:		java -cp ../jade/jade.jar:../classes jade.Boot -gui -agents "Consumer_1:marketSimulation.ConsumerAgent;Consumer_2:marketSimulation.ConsumerAgent;Producer:marketSimulation.ProducerAgent"
+script:		./market.sh ../jade/jade.jar ../classes 100 false 5 50
 
 
 
