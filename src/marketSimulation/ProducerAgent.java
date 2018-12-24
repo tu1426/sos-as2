@@ -17,7 +17,7 @@ import java.util.ArrayList;
 
 public class ProducerAgent extends Agent {
 
-	private int msInterval = 500;
+	private int msInterval = 100;
 	// target of food to produce (amount of food)
 	private int producingTarget = 0;
 	// balance of money of producer
@@ -32,9 +32,6 @@ public class ProducerAgent extends Agent {
 
 	// Put agent initializations here
 	protected void setup() {
-		// Printout a welcome message
-		print("Producer Agent " + getAID().getName() + " is ready.", true);
-
 		producingTarget = Helpers.getRandomNumberBetweenOneAndOneHundred();
 
 		// get strategy argument if specified, else use default strategy
@@ -42,7 +39,7 @@ public class ProducerAgent extends Agent {
 		if (args != null && args.length > 0) {
 			verbose = Boolean.valueOf((String) args[0]);
 		}
-		print("Chosen parameters are " + producingTarget + " producing target, Verbose is " + verbose, true);
+		print("Producer Agent " + getAID().getLocalName() + " is ready. Chosen parameters are " + producingTarget + " producing target, Verbose is " + verbose, true);
 
 		producedFood = new ArrayList<>();
 
@@ -59,7 +56,7 @@ public class ProducerAgent extends Agent {
 		dfd.addServices(sd);
 		try {
 			DFService.register(this, dfd);
-			print("Registered " + getAID().getName() + "  as producer agent.");
+			print("Registered " + getAID().getLocalName() + "  as producer agent.", false);
 		}
 		catch (FIPAException fe) {
 			fe.printStackTrace();
@@ -78,7 +75,7 @@ public class ProducerAgent extends Agent {
 					for (int i = 0; i < result.length; ++i) {
 						consumerAgents[i] = result[i].getName();
 					}
-					print("Found " + consumerAgents.length + " unique consumer agents.");
+					print("Found " + consumerAgents.length + " unique consumer agents.", false);
 				} catch (FIPAException fe) {
 					fe.printStackTrace();
 				}
@@ -101,12 +98,12 @@ public class ProducerAgent extends Agent {
 			fe.printStackTrace();
 		}
 
-		print("==============================================================================", true);
+		print("==================================================================", true);
 		print(String.format("%-20s%-20s%-35s", "Producer Agent", "Money Balance", "Sold / Unsold / Total Food"), true);
-		print("______________________________________________________________________________", true);
+		print("__________________________________________________________________", true);
 		print(String.format("%-20s%-20d%-35s", getAID().getLocalName(), moneyBalance, (producingTarget-producedFood.size())+" / "+producedFood.size()+" / "+producingTarget), true);
 		print("\n", true);
-		print("==============================================================================", true);
+		print("==================================================================", true);
 	}
 
 	// print info to command line
@@ -114,11 +111,6 @@ public class ProducerAgent extends Agent {
 		if(verbose || always){
 			System.out.println(toPrint);
 		}
-	}
-
-	// print info to command line
-	private void print(String toPrint) {
-		print(toPrint, false);
 	}
 
 	private class FoodRequestResponseServer extends CyclicBehaviour {
@@ -130,9 +122,9 @@ public class ProducerAgent extends Agent {
 				AID sender = msg.getSender();
 				// result message received. Process it
 				try {
-					FoodRequest foodRequest = (FoodRequest) msg.getContentObject();
+					Food.Request foodRequest = (Food.Request) msg.getContentObject();
 
-					print("Food request received from " + sender.getName() + " => " + foodRequest.toString(), true);
+					print("Food request received from " + sender.getLocalName() + " => " + foodRequest.toString(), false);
 
 					Food foodResponse = sellMatchingFood(foodRequest);
 
@@ -143,7 +135,7 @@ public class ProducerAgent extends Agent {
 					} else {
 						message = new ACLMessage(ACLMessage.CONFIRM);
 						message.setContentObject(foodResponse);
-						print("Food sold to " + sender.getName() + " => " + foodResponse.toString(), true);
+						print("Food sold to " + sender.getLocalName() + " => " + foodResponse.toString(), false);
 					}
 
 					message.addReceiver(sender);
@@ -161,7 +153,7 @@ public class ProducerAgent extends Agent {
 			}
 		}
 
-		private Food sellMatchingFood(FoodRequest foodRequest) {
+		private Food sellMatchingFood(Food.Request foodRequest) {
 			Food foodResponse = null;
 
 			for (Food food : producedFood) {

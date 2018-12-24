@@ -17,7 +17,7 @@ import java.util.ArrayList;
 
 public class ConsumerAgent extends Agent {
 
-	private int msInterval = 500;
+	private int msInterval = 100;
 	// the strategy the agent will follow
 	private Constants.BuyingStrategy buyingStrategy;
 	// actual amount of money
@@ -36,9 +36,6 @@ public class ConsumerAgent extends Agent {
 
 	// Put agent initializations here
 	protected void setup() {
-		// Printout a welcome message
-		print("Consumer Agent " + getAID().getName() + " is ready.", true);
-
 		buyingStrategy = Helpers.getRandomBuyingStrategy();
 
 		buyingTarget = Helpers.getRandomNumberBetweenOneAndTen();
@@ -53,7 +50,7 @@ public class ConsumerAgent extends Agent {
 		if (args != null && args.length > 0) {
 			verbose = Boolean.parseBoolean((String) args[0]);
 		}
-		print("Chosen strategy is " + buyingStrategy + ", buying target is " + buyingTarget + ", money balance is " + moneyBalance + ", verbose is " + verbose + ".", true);
+		print("Consumer Agent '" + getAID().getLocalName() + "' is ready. Chosen strategy is " + buyingStrategy + ", buying target is " + buyingTarget + ", money balance is " + moneyBalance + ", verbose is " + verbose + ".", true);
 
 		// Register the player agent service in the yellow pages
 		DFAgentDescription dfd = new DFAgentDescription();
@@ -64,7 +61,7 @@ public class ConsumerAgent extends Agent {
 		dfd.addServices(sd);
 		try {
 			DFService.register(this, dfd);
-			print("Registered " + getAID().getName() + "  as consumer agent.");
+			print("Registered " + getAID().getLocalName() + "  as consumer agent.", false);
 		}
 		catch (FIPAException fe) {
 			fe.printStackTrace();
@@ -85,7 +82,7 @@ public class ConsumerAgent extends Agent {
 						for (int i = 0; i < result.length; ++i) {
 							producerAgents[i] = result[i].getName();
 						}
-						print("Found " + producerAgents.length + " unique producer agents.");
+						print("Found " + producerAgents.length + " unique producer agents.", false);
 					} catch (FIPAException fe) {
 						fe.printStackTrace();
 					}
@@ -111,10 +108,11 @@ public class ConsumerAgent extends Agent {
 			fe.printStackTrace();
 		}
 
-		print("=======================================================================================================================", true);
-		print(String.format("%-20s%-20s%-20s%-20s%-20s%-20s", "Consumer Agent", "Strategy", "Buying Target",  "Money Balance @ T0", "Money Balance", "Bought Food"), true);
-		print("_______________________________________________________________________________________________________________________", true);
-		print(String.format("%-20s%-20s%-20d%-20d%-20d%-20d", getAID().getLocalName(), buyingStrategy, buyingTarget, moneyAtStart, moneyBalance, boughtFood.size()), true);
+		print("===========================================================================================", true);
+		print(String.format("%-20s%-10s%-15s%-20s%-15s%-15s", "Consumer Agent", "Strategy", "Buying Target",  "Money Balance @ T0", "Money Balance", "Bought Food"), true);
+		print("___________________________________________________________________________________________", true);
+		print(String.format("%-20s%-10s%-15d%-20d%-15d%-15d", getAID().getLocalName(), buyingStrategy, buyingTarget, moneyAtStart, moneyBalance, boughtFood.size()), true);
+		print("===========================================================================================", true);
 	}
 
 	// print info to command line
@@ -122,11 +120,6 @@ public class ConsumerAgent extends Agent {
 		if(verbose || always){
 			System.out.println(toPrint);
 		}
-	}
-
-	// print info to command line
-	private void print(String toPrint) {
-		print(toPrint, false);
 	}
 
 	private class RequestResponseClient extends Behaviour {
@@ -142,12 +135,12 @@ public class ConsumerAgent extends Agent {
 						int randomReceiver = (int) (Math.random() * producerAgents.length); // random int between 0 and size of producerAgents - 1
 						message.addReceiver(producerAgents[randomReceiver]);
 
-						FoodRequest foodRequest = createFoodRequest();
+						Food.Request foodRequest = createFoodRequest();
 
 						try {
 							message.setContentObject(foodRequest);
 							myAgent.send(message);
-							print("Food request sent to " + producerAgents[randomReceiver].getName() + " => " + foodRequest.toString(), true);
+							print("Food request sent to " + producerAgents[randomReceiver].getLocalName() + " => " + foodRequest.toString(), false);
 						} catch (IOException e) {
 							e.printStackTrace();
 						}
@@ -172,17 +165,20 @@ public class ConsumerAgent extends Agent {
 								Food foodResponse = (Food) msgConfirm.getContentObject();
 								boughtFood.add(foodResponse);
 								moneyBalance -= foodResponse.getPrice();
-
-								print("Food bought from " + sender.getName() + " => " + foodResponse.toString(), true);
+								step = 2;
+								print("Food bought from " + sender.getLocalName() + " => " + foodResponse.toString(), false);
 							} catch (UnreadableException e) {
 								e.printStackTrace();
 							}
 						}
 
+						if(msgDisonfirm != null) {
+							step = 2;
+						}
+
 						if (msgConfirm == null && msgDisonfirm == null) {
 							block();
 						}
-						step = 2;
 					} else {
 						doDelete();
 					}
@@ -190,7 +186,7 @@ public class ConsumerAgent extends Agent {
 			}
 		}
 
-		private FoodRequest createFoodRequest() {
+		private Food.Request createFoodRequest() {
 			Constants.FoodType foodType = Helpers.getRandomFoodType();
 
 			int minQuality = 0;
@@ -201,11 +197,11 @@ public class ConsumerAgent extends Agent {
 			} else if(buyingStrategy == Constants.BuyingStrategy.quality) {
 				minQuality = Helpers.getRandomNumberBetweenThreeAndFive();
 			}
-			return new FoodRequest(foodType, maxPrice, minQuality, buyingStrategy);
+			return new Food.Request(foodType, maxPrice, minQuality, buyingStrategy);
 		}
 
 		public boolean done() {
-			return step == 2;
+			return boughtFood.size() >= buyingTarget || moneyBalance < 10 || step == 2;
 		}
 	}
 }

@@ -1,6 +1,6 @@
 package marketSimulation;
 
-public class Helpers {
+class Helpers {
 
     public static Constants.FoodType getRandomFoodType() {
         return Constants.FoodType.values()[(int) (Math.random() * 10) % Constants.FoodType.values().length];

@@ -63,4 +63,61 @@ public class Food implements Serializable {
                 ", quality=" + quality +
                 '}';
     }
+
+    public static class Request implements Serializable {
+
+        private Constants.FoodType foodType;
+        private int maxPrice;
+        private int minQuality;
+        private Constants.BuyingStrategy buyingStrategy;
+
+        public Request(Constants.FoodType foodType, int maxPrice, int minQuality, Constants.BuyingStrategy buyingStrategy) {
+            this.foodType = foodType;
+            this.maxPrice = maxPrice;
+            this.minQuality = minQuality;
+            this.buyingStrategy = buyingStrategy;
+        }
+
+        public Constants.FoodType getFoodType() {
+            return foodType;
+        }
+
+        public void setFoodType(Constants.FoodType foodType) {
+            this.foodType = foodType;
+        }
+
+        public int getMaxPrice() {
+            return maxPrice;
+        }
+
+        public void setMaxPrice(int maxPrice) {
+            this.maxPrice = maxPrice;
+        }
+
+        public int getMinQuality() {
+            return minQuality;
+        }
+
+        public void setMinQuality(int minQuality) {
+            this.minQuality = minQuality;
+        }
+
+        public Constants.BuyingStrategy getBuyingStrategy() {
+            return buyingStrategy;
+        }
+
+        public void setBuyingStrategy(Constants.BuyingStrategy buyingStrategy) {
+            this.buyingStrategy = buyingStrategy;
+        }
+
+        @Override
+        public String toString() {
+            return "Request{" +
+                    "foodType=" + foodType +
+                    ", maxPrice=" + maxPrice +
+                    ", minQuality=" + minQuality +
+                    ", buyingStrategy=" + buyingStrategy +
+                    '}';
+        }
+    }
 }

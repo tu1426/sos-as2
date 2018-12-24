@@ -1,6 +1,6 @@
 package marketSimulation;
 
-public class Constants {
+class Constants {
 
     enum FoodType {
         cheese, eggs, meat, milk
